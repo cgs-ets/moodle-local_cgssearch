@@ -46,8 +46,6 @@ if (!is_siteadmin()) {
     exit;
 }
 
-
-
 // Build page output
 echo $OUTPUT->header();
 
