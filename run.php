@@ -55,6 +55,3 @@ $cron->execute();
 
 // Final outputs
 echo $OUTPUT->footer();
-
-
-

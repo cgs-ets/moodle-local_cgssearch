@@ -45,7 +45,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
      * @return string
      */
     public function get_name() {
-        return get_string('crontask_sync_documents', 'cgssearch');
+        return get_string('crontask_sync_documents', 'local_cgssearch');
     }
 
     /**
