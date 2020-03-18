@@ -46,12 +46,12 @@ if (!is_siteadmin()) {
     exit;
 }
 
-// Build page output
+// Build page output.
 echo $OUTPUT->header();
 
 echo "<pre>";
 $cron = new \local_cgssearch\task\cron_task_sync_documents();
 $cron->execute();
 
-// Final outputs
+// Final outputs.
 echo $OUTPUT->footer();

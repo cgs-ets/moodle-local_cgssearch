@@ -31,3 +31,5 @@ $string['config:secretdesc'] = 'The secret token required to access the external
 $string['config:sites'] = 'Sites';
 $string['config:sitesdesc'] = 'Comma-separated list of endpoints, e.g. "example.com/moodlesearch/, test.com/moodlesearch/"';
 $string['search:doc'] = 'External site document';
+$string['customsitelinks'] = 'custom_site_links';
+$string['quicklinks'] = 'ql';

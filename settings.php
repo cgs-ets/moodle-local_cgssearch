@@ -28,7 +28,7 @@ if ($hassiteconfig) {
     $settings = new admin_settingpage('local_cgssearch', get_string('pluginname', 'local_cgssearch'));
     $ADMIN->add('localplugins', $settings);
 
-    // Secret
+    // Secret.
     $name = 'local_cgssearch/secret';
     $title = get_string('config:secret', 'local_cgssearch');
     $description = get_string('config:secretdesc', 'local_cgssearch');

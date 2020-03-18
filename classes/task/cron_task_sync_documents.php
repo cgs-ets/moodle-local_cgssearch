@@ -59,6 +59,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $config = get_config('local_cgssearch');
         $sites = explode(',', $config->sites);
         $this->process_sites($sites, $config->secret);
+        $this->sync_quick_links();
 
         $this->log_finish("All site searches syned.");
 
@@ -66,7 +67,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
 
     private function process_sites($sites, $secret) {
         foreach ($sites as $site) {
-            // Assemble the endpoint url
+            // Assemble the endpoint url.
             $endpoint = trim($site) . '?secret=' . urlencode($secret);
             $this->log("Processing endpoint: " . $endpoint, 1);
 
@@ -133,9 +134,12 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         // Get ids to delete.
         list($insql, $inparams) = $DB->get_in_or_equal($extids);
         $sql = "SELECT id
-                  FROM {cgssearch_docs}
-                 WHERE id NOT IN (SELECT id from {cgssearch_docs} WHERE source = ? AND extid $insql)";
-        $params = array_merge(array($source), $inparams);
+                FROM {cgssearch_docs}
+                WHERE id NOT IN (SELECT id from {cgssearch_docs} WHERE source = ? AND extid $insql)
+                AND source = ?";
+        $params[] = $source;
+        $params = array_merge($params, $inparams);
+        $params[] = $source;
         $deleteids = $DB->get_records_sql($sql, $params);
         $deleteids = array_column($deleteids, 'id');
 
@@ -152,5 +156,98 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $DB->execute($sql, $inparams);
 
     }
+    /**
+     * Sync Links from the custom site links block.
+     */
+    private function sync_quick_links() {
+        global $DB;
 
+        $customelinks = $DB->get_record('block_instances', ['blockname' => get_string('customsitelinks', 'local_cgssearch')]);
+
+        if (empty($customelinks)) {
+            return;
+        }
+        $records = $DB->get_records('cgssearch_docs', ['source' => get_string('quicklinks', 'local_cgssearch')]);
+
+        $links = unserialize(base64_decode($customelinks->configdata));
+        $timecreated = $customelinks->timecreated;
+        $timemodified = $customelinks->timemodified;
+
+        if (!empty($records)) {
+            $r = $records[array_key_first($records)];
+
+            if ( $r->timemodified == $timemodified) {
+                return;
+            } else {
+                $this->delete_links(get_string('quicklinks', 'local_cgssearch'));
+            }
+        }
+        foreach ($links->iconlinklabel as $index => $i) {
+            $label = $links->iconlinklabel[$index];
+            $url = $links->iconlinkurl[$index];
+            $id = $links->iconlinkid[$index];
+            $url = $links->iconlinkurl[$index];
+            $audience = $links->iconlinkcampusroles[$index] . " " . $links->iconlinkyear[$index];
+            $audience = $this->format_audience(strtolower($audience));
+            $this->quick_links_helper($label, $url, $id, $audience  , $timecreated, $timemodified, $index);
+        }
+
+        foreach ($links->textlinklabel as $index => $i) {
+            $label = $links->textlinklabel[$index];;
+            $url = $links->textlinkurl[$index];
+            $id = $links->textlinkid[$index];
+            $audience = $links->textlinkcampusroles[$index] ." ". $links->textlinkyear[$index];
+            $audience = $this->format_audience(strtolower($audience));
+
+            $this->quick_links_helper($label, $url, $id, $audience, $timecreated, $timemodified, $index);
+        }
+
+    }
+    /**
+     * Format the audience of custom links to match the format other sources have.
+     * @param type $audience
+     */
+    private function format_audience($audience) {
+        $pattern = array('/,/', '/:/', '/\.\*/', '(senior|school|early|learning|centre|southside|northside|junior|school|primary|whole|future)');
+        $replace = ' ';
+        $r = preg_replace($pattern, $replace, $audience);
+        $r = explode(" ", trim($r));
+        $r = array_filter(array_map('trim', array_unique($r)));
+        $r = implode(",", $r);
+
+        $r = preg_replace('/\*/', 'staff,students,parents,admin', $r);
+        return $r;
+    }
+
+    private function quick_links_helper($label, $url, $id, $audience, $timecreated, $timemodified) {
+        global $DB;
+
+        // Set up doc record.
+        $data = new \stdClass();
+        $data->source = get_string('quicklinks', 'local_cgssearch');
+        $data->id = '';
+        $data->extid = $id;
+        // Do not store external author.
+        $data->author = '';
+        $data->title = $label;
+        $data->url = $url;
+        $data->audiences = $audience;
+        //  $data->keywords = $doc->keywords;
+        // Do not store external content.
+        $data->content = '';
+        $data->excerpt = '';
+        $data->timecreated = $timecreated;
+        $data->timemodified = $timemodified;
+        if (empty($record)) {
+            $this->log("Adding new: " . $data->source . " " . $label, 2);
+            $DB->insert_record('cgssearch_docs', $data);
+        }
+    }
+
+    private function delete_links($source) {
+        global $DB;
+
+        $result = $DB->delete_records('cgssearch_docs', ['source' => $source]);
+        $this->log($result);
+    }
 }

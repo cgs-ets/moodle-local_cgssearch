@@ -41,10 +41,10 @@ class doc extends \core_search\base {
     public function get_document_recordset($modifiedfrom = 0, \context $context = null) {
         global $DB;
 
-        $sql = "SELECT d.* 
-                  FROM {cgssearch_docs} d
-                 WHERE d.timemodified >= ? 
-              ORDER BY d.timemodified ASC"; 
+        $sql = "SELECT d.*
+                FROM {cgssearch_docs} d
+                WHERE d.timemodified >= ?
+                ORDER BY d.timemodified ASC";
         $params = array($modifiedfrom);
 
         return $DB->get_recordset_sql($sql, $params);
@@ -98,26 +98,52 @@ class doc extends \core_search\base {
         global $DB, $USER;
 
         $allowed = false;
-        
+
         // Get the document.
-        $sql = "SELECT d.* 
-                  FROM {cgssearch_docs} d
-                 WHERE id = ?";
+        $sql = "SELECT d.*
+                FROM {cgssearch_docs} d
+                WHERE id = ?";
         $doc = $DB->get_record_sql($sql, array($id));
 
-        // Access depends on cgs custom profile field "CampusRoles".
-        $userroles = explode(',', strtolower($USER->profile['CampusRoles']));
-        $userroles = array_map(function($role) {
-            preg_match('/(.*)(staff|students|parents)(.*)/', $role, $matches);
-            if ($matches) {
-                return $matches[2];
-            }
-            return 'local_cgssearch:invaliduserrole';
-        }, $userroles);
-        $docroles = explode(',', strtolower($doc->audiences));
+        if ($doc) { // Sometimes $doc comes back false. When looking for an element that is not in the DB.
 
-        if (array_intersect($userroles, $docroles)) {
-            $allowed = true;
+            // Access depends on cgs custom profile field "CampusRoles".
+            $userroles = explode(',', strtolower($USER->profile['CampusRoles']));
+            $userlinkyears = array();
+
+            // Some links have a "Year" audience. Filter by year.
+            if (!empty($USER->profile['Year']) && $doc->source == get_string('quicklinks', 'local_cgssearch')) {
+                $useryears = explode(',', ($USER->profile['Year']));
+                $audience = explode(',', strtolower($doc->audiences));
+
+                for ($i = 0; $i < count($audience); $i++) {
+                    if (is_numeric($audience[$i])) {
+                        $userlinkyears[] = $audience[$i];
+                    }
+                }
+                $userlinkyears = implode(',', $userlinkyears);
+
+            }
+            
+            if (empty($userlinkyears)) {
+                $userroles = array_map(function($role) {
+                    preg_match('/(.*)(staff|students|parents)(.*)/', $role, $matches);
+                    if ($matches) {
+                        return $matches[2];
+                    }
+                    return 'local_cgssearch:invaliduserrole';
+                }, $userroles);
+                $docroles = explode(',', strtolower($doc->audiences));
+                
+                if (array_intersect($userroles, $docroles)) {
+                    $allowed = true;
+                }
+
+            } else {
+
+                $allowed = $this->yearsallowed($userlinkyears, $useryears);
+            }
+
         }
 
         if ($allowed) {
@@ -125,6 +151,17 @@ class doc extends \core_search\base {
         }
 
         return \core_search\manager::ACCESS_DENIED;
+    }
+
+    public function yearsallowed($linkyears, $useryear) {
+         $linkyearsarr = array_map('trim', explode(',', $linkyears));
+         $yearsallowed = array_intersect($useryear, $linkyearsarr);
+
+        if( !empty($yearsallowed)){
+             return true;
+        }
+
+         return false;
     }
 
     /**
@@ -146,9 +183,9 @@ class doc extends \core_search\base {
     public function get_context_url(\core_search\document $doc) {
         global $DB;
         // Get the document.
-        $sql = "SELECT d.* 
-                  FROM {cgssearch_docs} d
-                 WHERE id = ?";
+        $sql = "SELECT d.*
+                FROM {cgssearch_docs} d
+                WHERE id = ?";
         $doc = $DB->get_record_sql($sql, array($doc->get('itemid')));
         return new \moodle_url($doc->url);
     }
@@ -193,13 +230,13 @@ class doc extends \core_search\base {
     public function get_doc_icon(\core_search\document $doc) : \core_search\document_icon {
         global $DB;
         // Get the document.
-        $sql = "SELECT d.* 
+        $sql = "SELECT d.*
                   FROM {cgssearch_docs} d
                  WHERE id = ?";
         $doc = $DB->get_record_sql($sql, array($doc->get('itemid')));
         // Get icon based on external site.
         return new \core_search\document_icon('i/icon-' . $doc->source, 'local_cgssearch');
-        //return new \core_search\document_icon('i/empty');
+       // return new \core_search\document_icon('i/empty');
     }
 
 
