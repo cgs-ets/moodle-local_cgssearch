@@ -167,15 +167,14 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         if (empty($customelinks)) {
             return;
         }
-        $records = $DB->get_records('cgssearch_docs', ['source' => get_string('quicklinks', 'local_cgssearch')]);
+        $records = $DB->get_records('cgssearch_docs', ['source' => get_string('quicklinks', 'local_cgssearch')],$sort='', $fields='*', $limitfrom=0, $limitnum=1);
 
         $links = unserialize(base64_decode($customelinks->configdata));
         $timecreated = $customelinks->timecreated;
         $timemodified = $customelinks->timemodified;
 
         if (!empty($records)) {
-            $r = $records[array_key_first($records)];
-
+            $r = $records[key($records)];           
             if ( $r->timemodified == $timemodified) {
                 return;
             } else {
