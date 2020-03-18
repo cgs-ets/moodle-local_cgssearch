@@ -127,7 +127,14 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
 
         return $docs;
     }
-
+    
+    /**
+     * 
+     * @global type $DB
+     * @param type $source of the document
+     * @param type $extids external id of the document.
+     * @return type
+     */
     private function delete_docs($source, $extids) {
         global $DB;
 
@@ -156,9 +163,12 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $DB->execute($sql, $inparams);
 
     }
-    /**
-     * Sync Links from the custom site links block.
-     */
+    
+   /**
+    * Sync links from the custom site links block.
+    * @global \local_cgssearch\task\type $DB
+    * @return type
+    */
     private function sync_quick_links() {
         global $DB;
 
@@ -186,39 +196,37 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
             $url = $links->iconlinkurl[$index];
             $id = $links->iconlinkid[$index];
             $url = $links->iconlinkurl[$index];
-            $audience = $links->iconlinkcampusroles[$index] . " " . $links->iconlinkyear[$index];
-            $audience = $this->format_audience(strtolower($audience));
-            $this->quick_links_helper($label, $url, $id, $audience  , $timecreated, $timemodified, $index);
+            $audience = $links->iconlinkcampusroles[$index];
+            if(!empty($links->iconlinkyear[$index])){
+                $audience .=  "," . $links->iconlinkyear[$index];
+            }          
+            $this->save_quicklink($label, $url, $id, strtolower($audience), $timecreated, $timemodified, $index);
         }
 
         foreach ($links->textlinklabel as $index => $i) {
             $label = $links->textlinklabel[$index];;
             $url = $links->textlinkurl[$index];
             $id = $links->textlinkid[$index];
-            $audience = $links->textlinkcampusroles[$index] ." ". $links->textlinkyear[$index];
-            $audience = $this->format_audience(strtolower($audience));
-
-            $this->quick_links_helper($label, $url, $id, $audience, $timecreated, $timemodified, $index);
+            $audience = $links->textlinkcampusroles[$index];
+            if(!empty($links->textlinkyear)){
+                $audience .=",". $links->textlinkyear[$index];
+            }
+            $this->save_quicklink($label, $url, $id, strtolower($audience), $timecreated, $timemodified, $index);
         }
 
     }
+    
     /**
-     * Format the audience of custom links to match the format other sources have.
+     * Inserts  a quick link into the DB.
+     * @global \local_cgssearch\task\type $DB
+     * @param type $label
+     * @param type $url
+     * @param type $id
      * @param type $audience
+     * @param type $timecreated
+     * @param type $timemodified
      */
-    private function format_audience($audience) {
-        $pattern = array('/,/', '/:/', '/\.\*/', '(senior|school|early|learning|centre|southside|northside|junior|school|primary|whole|future)');
-        $replace = ' ';
-        $r = preg_replace($pattern, $replace, $audience);
-        $r = explode(" ", trim($r));
-        $r = array_filter(array_map('trim', array_unique($r)));
-        $r = implode(",", $r);
-
-        $r = preg_replace('/\*/', 'staff,students,parents,admin', $r);
-        return $r;
-    }
-
-    private function quick_links_helper($label, $url, $id, $audience, $timecreated, $timemodified) {
+    private function save_quicklink($label, $url, $id, $audience, $timecreated, $timemodified) {
         global $DB;
 
         // Set up doc record.
@@ -242,7 +250,12 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
             $DB->insert_record('cgssearch_docs', $data);
         }
     }
-
+    
+    /**
+     * Delete quick links records.
+     * @global \local_cgssearch\task\type $DB
+     * @param type $source
+     */
     private function delete_links($source) {
         global $DB;
 
