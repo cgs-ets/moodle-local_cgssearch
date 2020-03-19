@@ -12,7 +12,7 @@
         <FIELD NAME="author" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="title" TYPE="char" LENGTH="1000" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="url" TYPE="char" LENGTH="1000" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="audiences" TYPE="char" LENGTH="250" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="audiences" TYPE="char" LENGTH="500" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
         <FIELD NAME="keywords" TYPE="char" LENGTH="1000" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="excerpt" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="content" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
