@@ -109,34 +109,28 @@ class doc extends \core_search\base {
 
             // Access depends on cgs custom profile field "CampusRoles".
             $userroles = explode(',', strtolower($USER->profile['CampusRoles']));
-            $userlinkyears = array();
            
             // Processing quick links.
             if ($doc->source == get_string('quicklinks', 'local_cgssearch')) {
-                // User is a student
-              
-                if(!empty($USER->profile['Year'])) {
-                  
-                   $useryears = explode(',', ($USER->profile['Year']));                  
-                   $audience = explode(',', strtolower($doc->audiences));
-                  
 
-                    for ($i = 0; $i < count($audience); $i++) {
-                        if (is_numeric($audience[$i])) {
-                            $userlinkyears[] = $audience[$i];
-                        }
+                // Extract year levels from the audience string.
+                $linkyearlevels = array();
+                $audiences = explode(',', strtolower($doc->audiences));
+                foreach($audiences as $audience) {
+                    if (is_numeric($audience)) {
+                        $linkyearlevels[] = $audience;
                     }
-                    $userlinkyears = implode(',', $userlinkyears); 
-                  
-               }
-               //Year level field is empty. Process by role.        
-               if (empty($userlinkyears)) {                         
-                   $allowed = $this->check_quick_links_access(strtolower($doc->audiences),$userroles);
-               }else{
-                   $allowed = $this->yearsallowed($userlinkyears, $useryears);
-               }
-               
-            }else {                
+                }
+                $linkyearlevels = implode(',', $linkyearlevels); 
+   
+                //Year level field is empty. Process by role.        
+                if (empty($linkyearlevels)) {                   
+                    $allowed = $this->check_quick_links_roles($audiences, $userroles);
+                } else {
+                    $useryears = explode(',', ($USER->profile['Year']));  
+                    $allowed = $this->check_quick_links_years($audiences, $useryears);
+                }
+            } else {                
                 if ($doc->source != get_string('quicklinks', 'local_cgssearch')) {
                     $userroles = array_map(function($role) {
                         preg_match('/(.*)(staff|students|parents)(.*)/', $role, $matches);
@@ -150,35 +144,29 @@ class doc extends \core_search\base {
                     if (array_intersect($userroles, $docroles)) {
                         $allowed = true;
                     }
-
                 }
-            }    
-      
-
+            }
         }
-       
+
         if ($allowed) {
             return \core_search\manager::ACCESS_GRANTED;
         }
 
         return \core_search\manager::ACCESS_DENIED;
     }
-    
+
     /**
      * 
-     * @param type $linkyears year level(s) for whom the link is available
-     * @param type $useryear year level of the user.
+     * @param type $audiences year level(s) for whom the link is available
+     * @param type $useryears the year(s) of the user doing the search.
      * @return boolean
      */
-    public function yearsallowed($linkyears, $useryear) {
-         $linkyearsarr = array_map('trim', explode(',', $linkyears));
-         $yearsallowed = array_intersect($useryear, $linkyearsarr);
-
-        if( !empty($yearsallowed)){
-             return true;
+    public function check_quick_links_years($audiences, $useryears) {       
+        if (array_intersect($useryears, $audiences)) {
+            return true;
         }
 
-         return false;
+        return false;
     }
     
     /**
@@ -187,17 +175,15 @@ class doc extends \core_search\base {
      * @param type $userroles the role(s) of the user doing the search.
      * @return boolean
      */
-    private function check_quick_links_access($audiences, $userroles){
-        
-        $linkrolesarr = array_map('trim', explode(',', $audiences));
-        $rolesallowed = array_intersect($userroles, $linkrolesarr);
+    private function check_quick_links_roles($audiences, $userroles){
+        $rolesallowed = array_intersect($userroles, $audiences);
         $userrolesstr = implode(',', $userroles);    
     
         if (trim($audiences) == "*" || $rolesallowed || is_siteadmin()) {
             return true;
         }
         // Do regex checks.
-        foreach ($linkrolesarr as $reg) {
+        foreach ($audiences as $reg) {
             $regex = "/${reg}/i";
             if ($reg && (preg_match($regex, $userrolesstr) === 1)) {
                 return true;
