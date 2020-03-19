@@ -121,14 +121,13 @@ class doc extends \core_search\base {
                         $linkyearlevels[] = $audience;
                     }
                 }
-                $linkyearlevels = implode(',', $linkyearlevels); 
    
                 //Year level field is empty. Process by role.        
                 if (empty($linkyearlevels)) {                   
                     $allowed = $this->check_quick_links_roles($audiences, $userroles);
                 } else {
                     $useryears = explode(',', ($USER->profile['Year']));  
-                    $allowed = $this->check_quick_links_years($audiences, $useryears);
+                    $allowed = $this->check_quick_links_years($linkyearlevels, $useryears);
                 }
             } else {                
                 if ($doc->source != get_string('quicklinks', 'local_cgssearch')) {
@@ -161,7 +160,7 @@ class doc extends \core_search\base {
      * @param type $useryears the year(s) of the user doing the search.
      * @return boolean
      */
-    public function check_quick_links_years($audiences, $useryears) {       
+    private function check_quick_links_years($audiences, $useryears) {       
         if (array_intersect($useryears, $audiences)) {
             return true;
         }
