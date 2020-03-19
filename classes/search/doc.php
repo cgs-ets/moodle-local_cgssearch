@@ -126,7 +126,7 @@ class doc extends \core_search\base {
                 if (empty($linkyearlevels)) {                   
                     $allowed = $this->check_quick_links_roles($audiences, $userroles);
                 } else {
-                    $useryears = explode(',', ($USER->profile['Year']));  
+                    $useryears = explode(',', ($USER->profile['Year']));
                     $allowed = $this->check_quick_links_years($linkyearlevels, $useryears);
                 }
             } else {                
@@ -178,7 +178,7 @@ class doc extends \core_search\base {
         $rolesallowed = array_intersect($userroles, $audiences);
         $userrolesstr = implode(',', $userroles);    
     
-        if (trim($audiences) == "*" || $rolesallowed || is_siteadmin()) {
+        if (in_array("*", $audiences) || $rolesallowed || is_siteadmin()) {
             return true;
         }
         // Do regex checks.
@@ -265,10 +265,5 @@ class doc extends \core_search\base {
         return new \core_search\document_icon('i/icon-' . $doc->source, 'local_cgssearch');
        // return new \core_search\document_icon('i/empty');
     }
-    
-    
-    
-
-
 
 }
