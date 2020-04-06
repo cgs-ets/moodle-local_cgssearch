@@ -109,28 +109,29 @@ class doc extends \core_search\base {
 
             // Access depends on cgs custom profile field "CampusRoles".
             $userroles = explode(',', strtolower($USER->profile['CampusRoles']));
-           
+
             // Processing quick links.
             if ($doc->source == get_string('quicklinks', 'local_cgssearch')) {
 
                 // Extract year levels from the audience string.
                 $linkyearlevels = array();
                 $audiences = explode(',', strtolower($doc->audiences));
-                foreach($audiences as $audience) {
+                foreach ($audiences as $audience) {
                     if (is_numeric($audience)) {
                         $linkyearlevels[] = $audience;
                     }
                 }
-   
-                //Year level field is empty. Process by role.        
-                if (empty($linkyearlevels)) {                   
+
+                // Year level field is empty. Process by role.
+                if (empty($linkyearlevels)) {
                     $allowed = $this->check_quick_links_roles($audiences, $userroles);
                 } else {
                     $useryears = explode(',', ($USER->profile['Year']));
                     $allowed = $this->check_quick_links_years($linkyearlevels, $useryears);
                 }
-            } else {                
-                if ($doc->source != get_string('quicklinks', 'local_cgssearch')) {
+            } else {
+                if ($doc->source != get_string('quicklinks', 'local_cgssearch') &&
+                    $doc->source != get_string('user', 'local_cgssearch')) {
                     $userroles = array_map(function($role) {
                         preg_match('/(.*)(staff|students|parents)(.*)/', $role, $matches);
                         if ($matches) {
@@ -145,6 +146,11 @@ class doc extends \core_search\base {
                     }
                 }
             }
+
+            if ( $doc->source == get_string('user', 'local_cgssearch') && !is_siteadmin() ) {
+                $allowed = $this->process_users($doc, $userroles);
+            }
+
         }
 
         if ($allowed) {
@@ -155,29 +161,29 @@ class doc extends \core_search\base {
     }
 
     /**
-     * 
+     *
      * @param type $audiences year level(s) for whom the link is available
      * @param type $useryears the year(s) of the user doing the search.
      * @return boolean
      */
-    private function check_quick_links_years($audiences, $useryears) {       
+    private function check_quick_links_years($audiences, $useryears) {
         if (array_intersect($useryears, $audiences)) {
             return true;
         }
 
         return false;
     }
-    
+
     /**
-     * 
+     *
      * @param type $audiences for whom the link is intent to.
      * @param type $userroles the role(s) of the user doing the search.
      * @return boolean
      */
-    private function check_quick_links_roles($audiences, $userroles){
+    private function check_quick_links_roles($audiences, $userroles) {
         $rolesallowed = array_intersect($userroles, $audiences);
-        $userrolesstr = implode(',', $userroles);    
-    
+        $userrolesstr = implode(',', $userroles);
+
         if (in_array("*", $audiences) || $rolesallowed || is_siteadmin()) {
             return true;
         }
@@ -263,7 +269,33 @@ class doc extends \core_search\base {
         $doc = $DB->get_record_sql($sql, array($doc->get('itemid')));
         // Get icon based on external site.
         return new \core_search\document_icon('i/icon-' . $doc->source, 'local_cgssearch');
-       // return new \core_search\document_icon('i/empty');
+        // return new \core_search\document_icon('i/empty');
+    }
+
+    /**
+     * Helper function to process users.
+     * @param \core_search\document  $doc
+     * @param array $userroles
+     * @return boolean
+     */
+    private function process_users($doc, $userroles) {
+
+        $allowed = false;
+        $docroles = explode(',', strtolower($doc->audiences));
+
+        $userroles = array_map(function($role) {
+            preg_match('/(.*)(staff)(.*)/', $role, $matches);
+            if ($matches) {
+                return $matches[2];
+            }
+            return 'local_cgssearch:invaliduserrole';
+        }, $userroles);
+
+        if (array_intersect($userroles, $docroles)|| is_admin()) {
+            $allowed = true;
+        }
+
+        return $allowed;
     }
 
 }

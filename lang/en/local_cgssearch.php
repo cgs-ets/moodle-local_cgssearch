@@ -33,3 +33,4 @@ $string['config:sitesdesc'] = 'Comma-separated list of endpoints, e.g. "example.
 $string['search:doc'] = 'External site document';
 $string['customsitelinks'] = 'custom_site_links';
 $string['quicklinks'] = 'ql';
+$string['user'] = 'usr';

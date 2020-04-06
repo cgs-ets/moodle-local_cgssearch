@@ -26,6 +26,7 @@ namespace local_cgssearch\task;
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/local/cgssearch/lib.php');
+require_once($CFG->dirroot . '/user/profile/lib.php');
 
 /**
  * The main scheduled task for the forum.
@@ -60,6 +61,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $sites = explode(',', $config->sites);
         $this->process_sites($sites, $config->secret);
         $this->sync_quick_links();
+        $this->sync_users();
 
         $this->log_finish("All site searches syned.");
 
@@ -127,9 +129,9 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
 
         return $docs;
     }
-    
+
     /**
-     * 
+     *
      * @global type $DB
      * @param type $source of the document
      * @param type $extids external id of the document.
@@ -163,12 +165,12 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $DB->execute($sql, $inparams);
 
     }
-    
-   /**
-    * Sync links from the custom site links block.
-    * @global \local_cgssearch\task\type $DB
-    * @return type
-    */
+
+    /**
+     * Sync links from the custom site links block.
+     * @global \local_cgssearch\task\type $DB
+     * @return type
+     */
     private function sync_quick_links() {
         global $DB;
 
@@ -177,14 +179,14 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         if (empty($customelinks)) {
             return;
         }
-        $records = $DB->get_records('cgssearch_docs', ['source' => get_string('quicklinks', 'local_cgssearch')],$sort='', $fields='*', $limitfrom=0, $limitnum=1);
+        $records = $DB->get_records('cgssearch_docs', ['source' => get_string('quicklinks', 'local_cgssearch')], $sort='', $fields = '*', $limitfrom = 0, $limitnum = 1);
 
         $links = unserialize(base64_decode($customelinks->configdata));
         $timecreated = $customelinks->timecreated;
         $timemodified = $customelinks->timemodified;
 
         if (!empty($records)) {
-            $r = $records[key($records)];           
+            $r = $records[key($records)];
             if ( $r->timemodified == $timemodified) {
                 return;
             } else {
@@ -197,9 +199,9 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
             $id = $links->iconlinkid[$index];
             $url = $links->iconlinkurl[$index];
             $audience = $links->iconlinkcampusroles[$index];
-            if(!empty($links->iconlinkyear[$index])){
-                $audience .=  "," . $links->iconlinkyear[$index];
-            }          
+            if (!empty($links->iconlinkyear[$index])) {
+                $audience .= "," . $links->iconlinkyear[$index];
+            }
             $this->save_quicklink($label, $url, $id, strtolower($audience), $timecreated, $timemodified, $index);
         }
 
@@ -208,14 +210,14 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
             $url = $links->textlinkurl[$index];
             $id = $links->textlinkid[$index];
             $audience = $links->textlinkcampusroles[$index];
-            if(!empty($links->textlinkyear)){
-                $audience .=",". $links->textlinkyear[$index];
+            if (!empty($links->textlinkyear)) {
+                $audience .= ",". $links->textlinkyear[$index];
             }
             $this->save_quicklink($label, $url, $id, strtolower($audience), $timecreated, $timemodified, $index);
         }
 
     }
-    
+
     /**
      * Inserts  a quick link into the DB.
      * @global \local_cgssearch\task\type $DB
@@ -239,7 +241,6 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $data->title = $label;
         $data->url = $url;
         $data->audiences = $audience;
-        //  $data->keywords = $doc->keywords;
         // Do not store external content.
         $data->content = '';
         $data->excerpt = '';
@@ -250,7 +251,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
             $DB->insert_record('cgssearch_docs', $data);
         }
     }
-    
+
     /**
      * Delete quick links records.
      * @global \local_cgssearch\task\type $DB
@@ -262,4 +263,78 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $result = $DB->delete_records('cgssearch_docs', ['source' => $source]);
         $this->log($result);
     }
+
+    private function sync_users() {
+        global $DB;
+
+        $this->delete_suspended_users();
+
+        // Load active users.
+        $sql = 'SELECT * FROM {user} WHERE suspended = ?';
+        $params[] = 0;
+        $activeusers = $DB->get_records_sql($sql, $params);
+
+        foreach ($activeusers as $i => $user) {
+            // Load custom fields.
+            profile_load_custom_fields($user);
+            // Set up doc record.
+
+            $data = new \stdClass();
+            $data->source = get_string('user', 'local_cgssearch');
+            $data->extid = $user->id;
+            // Do not store external author.
+            $data->author = '';
+            $data->title = fullname($user);
+
+            $profilepage =  new \moodle_url('/user/profile.php', array('id' => $user->id));
+            $data->url = $profilepage->out();
+
+            $data->audiences =  'staff';
+            $data->keywords = '';
+
+             // This hash code is used to validate changes in the profile.
+            $data->content = hash('md5', fullname($user));
+            $data->excerpt = '';
+            $data->timecreated = $user->timecreated;
+            $data->timemodified = $user->timemodified; // This time changes everyday (Synergetic sync).
+
+           // Check if user already exists.
+            $record = $DB->get_record('cgssearch_docs', array('source' => $data->source, 'extid' => $user->id));
+
+            if ($record) {
+                // If it has been modified since last sync, update the record.
+                if ($record->content != $data->content) {
+                    $this->log("Updating user: external id (" . $user->id . ") table id (" . $record->id . ")", 2);
+                    $data->id = $record->id;
+                    $DB->update_record('cgssearch_docs', $data);
+                }
+            } else {
+                $this->log("Adding new user: " . $user->id, 2);
+                $DB->insert_record('cgssearch_docs', $data);
+            }
+        }
+
+    }
+
+    /**
+     *
+     * @global \local_cgssearch\task\type $DB
+     */
+    private function delete_suspended_users(){
+
+        global $DB;
+
+        // Load suspended users.
+        $sql = 'SELECT * FROM {user} WHERE suspended = ?';
+        $params[] = 1;
+        $suspendedusers = $DB->get_records_sql($sql, $params);
+
+        foreach ($suspendedusers as $i => $user) {
+
+            $DB->delete_records('cgssearch_docs', ['extid' => $user->id]);
+        }
+
+    }
+
+
 }
