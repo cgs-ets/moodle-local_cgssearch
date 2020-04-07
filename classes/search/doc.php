@@ -147,7 +147,7 @@ class doc extends \core_search\base {
                 }
             }
 
-            if ( $doc->source == get_string('user', 'local_cgssearch') && !is_siteadmin() ) {
+            if ( $doc->source == get_string('user', 'local_cgssearch')) {
                 $allowed = $this->process_users($doc, $userroles);
             }
 
