@@ -291,7 +291,7 @@ class doc extends \core_search\base {
             return 'local_cgssearch:invaliduserrole';
         }, $userroles);
 
-        if (array_intersect($userroles, $docroles)|| is_admin()) {
+        if (array_intersect($userroles, $docroles)|| is_siteadmin()) {
             $allowed = true;
         }
 
