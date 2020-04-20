@@ -55,16 +55,16 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
     public function execute() {
         global $DB;
 
-        $this->log_start("Executing external site sync.");
-
         $config = get_config('local_cgssearch');
+
+        $this->log_start("Executing cgssearch sync.");
+
         $sites = explode(',', $config->sites);
         $this->process_sites($sites, $config->secret);
-        $this->sync_quick_links();
+        //$this->sync_quick_links();
         $this->sync_users();
 
-        $this->log_finish("All site searches syned.");
-
+        $this->log_finish("Finished.");
     }
 
     private function process_sites($sites, $secret) {
@@ -172,6 +172,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
     private function sync_quick_links() {
         global $DB;
 
+        $this->log("Syncing quicklinks.", 1);
         $customelinks = $DB->get_record('block_instances', ['blockname' => get_string('customsitelinks', 'local_cgssearch')]);
 
         if (empty($customelinks)) {
@@ -265,6 +266,8 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
      */
     private function sync_users() {
         global $DB;
+
+        $this->log("Syncing users.", 1);
 
         $this->delete_suspended_users();
 
