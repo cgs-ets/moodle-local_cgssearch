@@ -7,7 +7,6 @@ A local plugin that stores and synchronises an index of external website documen
 Author
 --------
 Michael Vangelovski<br/>
-<michael.vangelovski@gmail><br/>
 <https://github.com/michaelvangelovski><br/>
 <http://michaelvangelovski.com>
 

@@ -168,8 +168,6 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
 
     /**
      * Sync links from the custom site links block.
-     * @global \local_cgssearch\task\type $DB
-     * @return type
      */
     private function sync_quick_links() {
         global $DB;
@@ -219,8 +217,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
     }
 
     /**
-     * Inserts  a quick link into the DB.
-     * @global \local_cgssearch\task\type $DB
+     * Inserts a quick link into the DB.
      * @param type $label
      * @param type $url
      * @param type $id
@@ -254,7 +251,6 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
 
     /**
      * Delete quick links records.
-     * @global \local_cgssearch\task\type $DB
      * @param type $source
      */
     private function delete_links($source) {
@@ -264,6 +260,9 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $this->log($result);
     }
 
+    /**
+     * Adds user records to index table.
+     */
     private function sync_users() {
         global $DB;
 
@@ -317,11 +316,9 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
     }
 
     /**
-     *
-     * @global \local_cgssearch\task\type $DB
+     * Deletes suspended users from index table.
      */
     private function delete_suspended_users(){
-
         global $DB;
 
         // Load suspended users.
