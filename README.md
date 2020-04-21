@@ -1,8 +1,8 @@
 
 
-# CGS External document search integration
+# CGS Search
 
-A local plugin that stores and synchronises an index of external website documents so that Moodle can index and display them as results in the Global Search. Developed for Canberra Grammar School.
+A local plugin that synchronises an index of documents from external systems, as well as quick link (custom block) and user information, so that Moodle can index, search and display these as results via Moodle's Global Search. The plugin consumes external site data via custom API endpoints built into the external systems. Developed for Canberra Grammar School.
 
 Author
 --------

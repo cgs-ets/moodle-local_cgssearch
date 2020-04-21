@@ -25,7 +25,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2019090401;
+$plugin->version   = 2019090402;
 $plugin->requires  = 2017111300;
 $plugin->component = 'local_cgssearch';
 $plugin->maturity = MATURITY_STABLE;

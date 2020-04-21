@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Add external site docs to search
+ * Add custom docs to search
  *
  * @package   local_cgssearch
  * @copyright 2019 Michael Vangelovski <michael.vangelovski@hotmail.com>
@@ -267,7 +267,7 @@ class doc extends \core_search\base {
                   FROM {cgssearch_docs} d
                  WHERE id = ?";
         $doc = $DB->get_record_sql($sql, array($doc->get('itemid')));
-        // Get icon based on external site.
+        // Get icon based on external site/type.
         return new \core_search\document_icon('i/icon-' . $doc->source, 'local_cgssearch');
         // return new \core_search\document_icon('i/empty');
     }

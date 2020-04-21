@@ -23,14 +23,14 @@
  *
  */
 $string['title'] = '';
-$string['pluginname'] = 'CGS External Site Search';
-$string['privacy:metadata'] = 'CGS External Site Search does not store any personal data.';
-$string['crontask_sync_documents'] = 'CGS External Site Search Sync task';
+$string['pluginname'] = 'CGS Search';
+$string['privacy:metadata'] = 'CGS Search does not store any personal data.';
+$string['crontask_sync_documents'] = 'CGS Search sync task';
 $string['config:secret'] = 'Secret';
-$string['config:secretdesc'] = 'The secret token required to access the external pages';
+$string['config:secretdesc'] = 'The secret token required to access the external sites';
 $string['config:sites'] = 'Sites';
-$string['config:sitesdesc'] = 'Comma-separated list of endpoints, e.g. "example.com/moodlesearch/, test.com/moodlesearch/"';
-$string['search:doc'] = 'External site document';
+$string['config:sitesdesc'] = 'Comma-separated list of external endpoints, e.g. "example.com/moodlesearch/, test.com/moodlesearch/"';
+$string['search:doc'] = 'CGS Search docs';
 $string['customsitelinks'] = 'custom_site_links';
 $string['quicklinks'] = 'ql';
 $string['user'] = 'usr';
