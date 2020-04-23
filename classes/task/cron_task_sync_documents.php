@@ -61,7 +61,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
 
         $sites = explode(',', $config->sites);
         $this->process_sites($sites, $config->secret);
-        //$this->sync_quick_links();
+        $this->sync_quick_links();
         $this->sync_users();
 
         $this->log_finish("Finished.");
@@ -172,47 +172,87 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
     private function sync_quick_links() {
         global $DB;
 
-        $this->log("Syncing quicklinks.", 1);
-        $customelinks = $DB->get_record('block_instances', ['blockname' => get_string('customsitelinks', 'local_cgssearch')]);
+        $this->log("Syncing quicklinks.", 2);
 
-        if (empty($customelinks)) {
+        $sql = "SELECT *
+                   FROM mdl_block_instances  bi
+                   WHERE bi.blockname = :csl
+                   ORDER BY bi.timemodified";
+
+        $customlinks = $DB->get_records_sql($sql, array('csl' => 'custom_site_links'));
+
+        if (empty($customlinks)) {
             return;
         }
-        $records = $DB->get_records('cgssearch_docs', ['source' => get_string('quicklinks', 'local_cgssearch')], $sort='', $fields = '*', $limitfrom = 0, $limitnum = 1);
 
-        $links = unserialize(base64_decode($customelinks->configdata));
-        $timecreated = $customelinks->timecreated;
-        $timemodified = $customelinks->timemodified;
+        $q = "SELECT DISTINCT timecreated, timemodified
+                FROM {cgssearch_docs} d
+               WHERE d.source = :ql
+               ORDER BY d.timemodified";
 
-        if (!empty($records)) {
-            $r = $records[key($records)];
-            if ( $r->timemodified == $timemodified) {
-                return;
-            } else {
-                $this->delete_links(get_string('quicklinks', 'local_cgssearch'));
-            }
+        $r = $DB->get_records_sql($q, array('ql' => get_string('quicklinks', 'local_cgssearch')));
+
+        $this->save_quick_links($customlinks, $r);
+    }
+
+    /**
+     *
+     * @param record $customlinks
+     */
+
+
+
+    private function save_quick_links($customlinks, $r = null) {
+        $links = array();
+
+        foreach ($customlinks as $l => $cl) {
+            $l = array((unserialize(base64_decode($cl->configdata))),
+                'timecreated' => $cl->timecreated, 'timemodified' => $cl->timemodified);
+            array_push($links, $l);
         }
-        foreach ($links->iconlinklabel as $index => $i) {
-            $label = $links->iconlinklabel[$index];
-            $url = $links->iconlinkurl[$index];
-            $id = $links->iconlinkid[$index];
-            $url = $links->iconlinkurl[$index];
-            $audience = $links->iconlinkcampusroles[$index];
-            if (!empty($links->iconlinkyear[$index])) {
-                $audience .= "," . $links->iconlinkyear[$index];
-            }
-            $this->save_quicklink($label, $url, $id, strtolower($audience), $timecreated, $timemodified, $index);
+
+        if ($r != null) {  // There was an update in a block, delete ql.
+             $this->delete_links(get_string('quicklinks', 'local_cgssearch'));
         }
 
-        foreach ($links->textlinklabel as $index => $i) {
-            $label = $links->textlinklabel[$index];;
-            $url = $links->textlinkurl[$index];
-            $id = $links->textlinkid[$index];
-            $audience = $links->textlinkcampusroles[$index];
-            if (!empty($links->textlinkyear)) {
-                $audience .= ",". $links->textlinkyear[$index];
+        $this->process_quick_links_to_save($links);
+    }
+
+    /**
+     * Helper function to process each quick link.
+     * @param record $links
+     */
+    private function process_quick_links_to_save ($links) {
+         $this->log("Running process_quick_links_to_save", 2);
+
+        foreach ($links as $index => $i) {
+            $timecreated = $i['timecreated'];
+            $timemodified = $i['timemodified'];
+            foreach ($links[$index] as $j => $p) {
+                if (is_numeric($j)) {
+                    foreach ($p->iconlinklabel as $x => $y) {
+                        $label = $p->iconlinklabel[$x];
+                        $url = $p->iconlinkurl[$x];
+                        $id = $p->iconlinkid[$x];
+                        $audience = $p->iconlinkcampusroles[$x];
+                        if (!empty($links->iconlinkyear[$x])) {
+                            $audience .= "," . $p->iconlinkyear[$x];
+                        }
+                        $this->save_quicklink_helper($label, $url, $id, strtolower($audience), $timecreated, $timemodified);
+                    }
+
+                    foreach ($p->textlinklabel as $x => $y) {
+                        $label = $p->textlinklabel[$x];;
+                        $url = $p->textlinkurl[$x];
+                        $id = $p->textlinkid[$x];
+                        $audience = $p->textlinkcampusroles[$x];
+                        if (!empty($p->textlinkyear)) {
+                            $audience .= ",". $p->textlinkyear[$x];
+                        }
+                          $this->save_quicklink_helper($label, $url, $id, strtolower($audience), $timecreated, $timemodified);
+                    }
+                }
             }
-            $this->save_quicklink($label, $url, $id, strtolower($audience), $timecreated, $timemodified, $index);
         }
 
     }
@@ -226,7 +266,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
      * @param type $timecreated
      * @param type $timemodified
      */
-    private function save_quicklink($label, $url, $id, $audience, $timecreated, $timemodified) {
+    private function save_quicklink_helper($label, $url, $id, $audience, $timecreated, $timemodified) {
         global $DB;
 
         // Set up doc record.
@@ -288,10 +328,10 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
             $data->author = '';
             $data->title = fullname($user);
 
-            $profilepage =  new \moodle_url('/user/profile.php', array('id' => $user->id));
+            $profilepage = new \moodle_url('/user/profile.php', array('id' => $user->id));
             $data->url = $profilepage->out();
 
-            $data->audiences =  'staff';
+            $data->audiences = 'staff';
             $data->keywords = '';
 
              // This hash code is used to validate changes in the profile.
@@ -300,7 +340,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
             $data->timecreated = $user->timecreated;
             $data->timemodified = $user->timemodified; // This time changes everyday (Synergetic sync).
 
-           // Check if user already exists.
+            // Check if user already exists.
             $record = $DB->get_record('cgssearch_docs', array('source' => $data->source, 'extid' => $user->id));
 
             if ($record) {
@@ -321,7 +361,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
     /**
      * Deletes suspended users from index table.
      */
-    private function delete_suspended_users(){
+    private function delete_suspended_users() {
         global $DB;
 
         // Load suspended users.
