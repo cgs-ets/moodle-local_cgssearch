@@ -115,8 +115,8 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
             // Check if doc already exists.
             $record = $DB->get_record('cgssearch_docs', array('source' => $doc->source, 'extid' => $doc->extid));
             if ($record) {
-                // If it has been modified since last sync, update the record.
-                if ($record->timemodified != $doc->timemodified) {
+                // If it has been modified since last sync, or the url has moved, update the record
+                if ($record->timemodified != $doc->timemodified || $record->url != $doc->url) {
                     $this->log("Updating: external id (" . $doc->extid . ") table id (" . $record->id . ")", 2);
                     $data->id = $record->id;
                     $DB->update_record('cgssearch_docs', $data);
