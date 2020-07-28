@@ -370,8 +370,10 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $suspendedusers = $DB->get_records_sql($sql, $params);
 
         foreach ($suspendedusers as $i => $user) {
-
-            $DB->delete_records('cgssearch_docs', ['extid' => $user->id]);
+            $DB->delete_records('cgssearch_docs', array(
+                'extid' => $user->id,
+                'source' => 'usr'
+            ));
         }
 
     }
