@@ -41,6 +41,11 @@ class doc extends \core_search\base {
     public function get_document_recordset($modifiedfrom = 0, \context $context = null) {
         global $DB;
 
+        // Only index for site context.
+        if (isset($context) && $context->contextlevel != \CONTEXT_SYSTEM ) {
+            return null;
+        }
+
         $sql = "SELECT d.*
                 FROM {cgssearch_docs} d
                 WHERE d.timemodified >= ?
