@@ -59,9 +59,10 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
 
         $this->log_start("Executing cgssearch sync.");
 
+        $this->sync_quick_links();
+
         $sites = explode(',', $config->sites);
         $this->process_sites($sites, $config->secret);
-        $this->sync_quick_links();
         $this->sync_users();
 
         $this->log_finish("Finished.");
@@ -175,130 +176,74 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
         $this->log("Syncing quicklinks.", 2);
 
         $sql = "SELECT *
-                   FROM mdl_block_instances  bi
-                   WHERE bi.blockname = :csl
-                   ORDER BY bi.timemodified";
+                FROM mdl_block_quicklinks 
+                ORDER BY timemodified, timecreated";
+        $links = $DB->get_records_sql($sql);
 
-        $customlinks = $DB->get_records_sql($sql, array('csl' => 'custom_site_links'));
-
-        if (empty($customlinks)) {
+        if (empty($links)) {
             return;
         }
 
-        $q = "SELECT DISTINCT timecreated, timemodified
-                FROM {cgssearch_docs} d
-               WHERE d.source = :ql
-               ORDER BY d.timemodified";
+        //$this->delete_source('ql');
 
-        $r = $DB->get_records_sql($q, array('ql' => get_string('quicklinks', 'local_cgssearch')));
-
-        $this->save_quick_links($customlinks, $r);
+        $this->save_links($links);
     }
 
-    /**
-     *
-     * @param record $customlinks
-     */
 
-
-
-    private function save_quick_links($customlinks, $r = null) {
-        $links = array();
-
-        foreach ($customlinks as $l => $cl) {
-            $l = array((unserialize(base64_decode($cl->configdata))),
-                'timecreated' => $cl->timecreated, 'timemodified' => $cl->timemodified);
-            array_push($links, $l);
-        }
-
-        if ($r != null) {  // There was an update in a block, delete ql.
-             $this->delete_links(get_string('quicklinks', 'local_cgssearch'));
-        }
-
-        $this->process_quick_links_to_save($links);
-    }
 
     /**
      * Helper function to process each quick link.
      * @param record $links
      */
-    private function process_quick_links_to_save ($links) {
-         $this->log("Running process_quick_links_to_save", 2);
-
-        foreach ($links as $index => $i) {
-            $timecreated = $i['timecreated'];
-            $timemodified = $i['timemodified'];
-            foreach ($links[$index] as $j => $p) {
-                if (is_numeric($j)) {
-                    foreach ($p->iconlinklabel as $x => $y) {
-                        $label = $p->iconlinklabel[$x];
-                        $url = $p->iconlinkurl[$x];
-                        $id = $p->iconlinkid[$x];
-                        $audience = $p->iconlinkcampusroles[$x];
-                        if (!empty($links->iconlinkyear[$x])) {
-                            $audience .= "," . $p->iconlinkyear[$x];
-                        }
-                        $this->save_quicklink_helper($label, $url, $id, strtolower($audience), $timecreated, $timemodified);
-                    }
-
-                    foreach ($p->textlinklabel as $x => $y) {
-                        $label = $p->textlinklabel[$x];;
-                        $url = $p->textlinkurl[$x];
-                        $id = $p->textlinkid[$x];
-                        $audience = $p->textlinkcampusroles[$x];
-                        if (!empty($p->textlinkyear)) {
-                            $audience .= ",". $p->textlinkyear[$x];
-                        }
-                          $this->save_quicklink_helper($label, $url, $id, strtolower($audience), $timecreated, $timemodified);
-                    }
-                }
-            }
-        }
-
-    }
-
-    /**
-     * Inserts a quick link into the DB.
-     * @param type $label
-     * @param type $url
-     * @param type $id
-     * @param type $audience
-     * @param type $timecreated
-     * @param type $timemodified
-     */
-    private function save_quicklink_helper($label, $url, $id, $audience, $timecreated, $timemodified) {
+    private function save_links ($links) {
         global $DB;
 
-        // Set up doc record.
-        $data = new \stdClass();
-        $data->source = get_string('quicklinks', 'local_cgssearch');
-        $data->id = '';
-        $data->extid = $id;
-        // Do not store external author.
-        $data->author = '';
-        $data->title = $label;
-        $data->url = $url;
-        $data->audiences = $audience;
-        // Do not store external content.
-        $data->content = '';
-        $data->excerpt = '';
-        $data->timecreated = $timecreated;
-        $data->timemodified = $timemodified;
-        if (empty($record)) {
-            $this->log("Adding new: " . $data->source . " " . $label, 2);
-            $DB->insert_record('cgssearch_docs', $data);
+        foreach ($links as $data) {
+
+            $tags = json_decode($data->tags);
+
+            // Set up doc record.
+            $doc = new \stdClass();
+            $doc->source = 'ql';
+            $doc->extid = $data->id;
+            $doc->author = '';
+            $doc->title = $data->label;
+            $doc->url = $data->url;
+            $doc->audiences = $data->roles . ',YEARS:' . $data->years;
+            $doc->content = '';
+            $doc->excerpt = '';
+            $doc->timecreated = $data->timecreated;
+            $doc->timemodified = $data->timemodified;
+            $doc->keywords = count($tags) ? implode(',', $tags) : '';
+
+            // Check if link already exists.
+            $record = $DB->get_record('cgssearch_docs', array('source' => 'ql', 'extid' => $data->id));
+            if ($record) {
+                // If it has been modified since last sync, or the url has moved, update the record
+                if ($record->timemodified != $doc->timemodified || $record->url != $doc->url) {
+                    $this->log("Updating: external id (" . $doc->extid . ") table id (" . $record->id . ")", 2);
+                    $doc->id = $record->id;
+                    $DB->update_record('cgssearch_docs', $doc);
+                } else {
+                    $this->log("Skipping link because it has not been modified since last sync: id (" . $doc->extid . ")", 2);
+                }
+            } else {
+                $this->log("Adding new: " . $doc->source . " " . $doc->title, 2);
+                $DB->insert_record('cgssearch_docs', $doc);
+            }
+
         }
     }
+
 
     /**
      * Delete quick links records.
      * @param type $source
      */
-    private function delete_links($source) {
+    private function delete_source($source) {
         global $DB;
 
         $result = $DB->delete_records('cgssearch_docs', ['source' => $source]);
-        $this->log($result);
     }
 
     /**
@@ -334,7 +279,7 @@ class cron_task_sync_documents extends \core\task\scheduled_task {
             $data->audiences = 'staff';
             $data->keywords = '';
 
-             // This hash code is used to validate changes in the profile.
+            // This hash code is used to validate changes in the profile.
             $data->content = hash('md5', fullname($user));
             $data->excerpt = '';
             $data->timecreated = $user->timecreated;
